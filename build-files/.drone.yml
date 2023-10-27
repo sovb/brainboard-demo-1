@@ -1,0 +1,119 @@
+pipeline:
+
+  cache_restore:
+    image: ypcloud/cache
+    restore: true
+    mount: [ node_modules ]
+
+  ## Builds the package
+  build:
+    image: node:fermium
+    commands:
+      - npm config set registry https://npm.ypcloud.io/
+      - npm install
+    when:
+      branch: [master, develop, release/*, feature/*]
+
+  ## Runs the test (lint, test, coverage)
+  test:
+    image: node:fermium
+    commands:
+      - npm test
+    when:
+      branch: [master, develop, release/*, feature/*]
+
+  cache_build:
+    image: ypcloud/cache
+    rebuild: true
+    mount: [ node_modules ]
+
+  ## Test coverage
+  sonar:
+    image: ypcloud/sonar-runner
+    sources: .
+    inclusions: src/**/*.js
+    exclusions: src/**/*.spec.js, src/mockData/*.js
+    lcovpath: coverage/lcov.info
+    version: "${DRONE_BUILD_NUMBER}"
+    secrets: [ sonar_login, sonar_password, sonar_host ]
+
+  ## This will publish docker image in registery and tag it with "latest", build number and prod
+  docker_prod_dev:
+    repo: "gcr.io/ypcloud-io/${DRONE_REPO,,}"
+    image: plugins/gcr
+    secrets: [ google_credentials ]
+    dockerfile: Dockerfile
+    tag:
+    - "${DRONE_BUILD_NUMBER}"
+    - "${DRONE_BRANCH}"
+    when:
+      branch: [master, develop]
+
+  ## This will publish docker image in registery and tag it with "latest", build number and qa
+  docker_qa:
+    repo: "gcr.io/ypcloud-io/${DRONE_REPO,,}"
+    image: plugins/gcr
+    secrets: [ google_credentials ]
+    dockerfile: Dockerfile
+    tag:
+    - "${DRONE_BUILD_NUMBER}"
+    - "qa"
+    when:
+      branch: [release/*]
+
+  ## Deploy to YPCloud
+  ## More information about this plugin: https://itwiki.ypg.com/display/BEA/Drone-K8S+plugin
+  ## Contact YPCloud support for help
+  deploy_prod:
+    image: gcr.io/ypcloud-io/ypcloud/yphelm:eks
+    kong: true
+    namespace: "${DRONE_REPO_OWNER,,}${DRONE_REPO_NAME}"
+    deployment:
+      image: "gcr.io/ypcloud-io/${DRONE_REPO_OWNER,,}/${DRONE_REPO_NAME}"
+      labels: ["${DRONE_REPO_NAME}", "${DRONE_REPO_OWNER,,}"]
+      port: 80
+      version: "${DRONE_BUILD_NUMBER}"
+      healthchecks:
+        http: /health
+      env:
+      - "NODE_ENV=prod"
+    ingress:
+      prefix: ypcloud.io
+    when:
+      branch: [master]
+
+  deploy_dev:
+    image: gcr.io/ypcloud-io/ypcloud/yphelm:eks
+    kong: true
+    namespace: "${DRONE_REPO_OWNER,,}${DRONE_REPO_NAME}"
+    deployment:
+      image: "gcr.io/ypcloud-io/${DRONE_REPO_OWNER,,}/${DRONE_REPO_NAME}"
+      labels: ["${DRONE_REPO_NAME}", "${DRONE_REPO_OWNER,,}"]
+      port: 80
+      version: "${DRONE_BUILD_NUMBER}"
+      healthchecks:
+        http: /health
+      env:
+      - "NODE_ENV=dev"
+    ingress:
+      prefix: ypcloud.io
+    when:
+      branch: [develop]
+
+  deploy_qa:
+    image: gcr.io/ypcloud-io/ypcloud/yphelm:eks
+    kong: true
+    namespace: "${DRONE_REPO_OWNER,,}${DRONE_REPO_NAME}"
+    deployment:
+      image: "gcr.io/ypcloud-io/${DRONE_REPO_OWNER,,}/${DRONE_REPO_NAME}"
+      labels: ["${DRONE_REPO_NAME}", "${DRONE_REPO_OWNER,,}"]
+      port: 80
+      version: "${DRONE_BUILD_NUMBER}"
+      healthchecks:
+        http: /health
+      env:
+      - "NODE_ENV=qa"
+    ingress:
+      prefix: ypcloud.io
+    when:
+      branch: [release/*]

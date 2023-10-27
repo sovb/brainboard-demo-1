@@ -1,0 +1,95 @@
+version: 0.2
+
+env:
+  # secrets-manager:
+  #   NPM_REGISTERY: "arn:aws:secretsmanager:us-east-1:682740202133:secret:yp-ci-demo-npm_registry-secrets-bFo74K"
+
+  variables:
+    FERMIUM_IMAGE_NAME: "fermium"
+    FERMIUM_IMAGE_TAG: "latest"
+ 
+phases:  
+  install: 
+    commands:
+      - echo "*****************INSTALL STEP*********************"
+      - echo "*********Logging in to Amazon ECR*****************"
+      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_URL
+      - echo "*********Logging in to Amazon CodeArtifact********"
+      - aws codeartifact login --tool npm --repository  $CODEARTIFACT_REPOSITORY_NAME --domain $CODEARTIFACT_DOMAIN_NAME --domain-owner $AWS_ACCOUNT --region us-east-1
+      - export BUILD_ENV=$([[ "$SOURCE_BRANCH_NAME" =~ "release/*" ]] && echo qa || [[ "$SOURCE_BRANCH_NAME" == "master" ]] && echo master || echo develop) || true
+      - |
+        if [[ "$SOURCE_BRANCH_NAME" =~ "release/*" ]]; then
+          export BUILD_ENV="qa"
+        elif [[ "$SOURCE_BRANCH_NAME" =~ "master" ]]; then
+          export BUILD_ENV="master"
+        elif [[ "$SOURCE_BRANCH_NAME" =~ "develop" ]]; then
+          export BUILD_ENV="develop" 
+        fi
+      - echo $BUILD_ENV
+      - docker load --input /docker_images/$FERMIUM_IMAGE_NAME.tar || true
+      - |
+        if [[ "$(docker images -q $ECR_URL/$FERMIUM_IMAGE_NAME 2> /dev/null)" == "" ]]; then
+          echo "Image not present in cache"
+          docker pull $ECR_URL/$FERMIUM_IMAGE_NAME && mkdir -p /docker_images && docker save --output /docker_images/$FERMIUM_IMAGE_NAME.tar $ECR_URL/$FERMIUM_IMAGE_NAME
+        fi
+      - echo "**********ENDING INSTALL STEP*******************"
+
+  pre_build:
+    commands:
+      - echo "*****************PRE BUILD STEP*********************"
+      - echo "************************************************************"
+      - echo "*****************STARTING INSTALL PHASE*********************"
+      - |
+        if [[ "$SOURCE_BRANCH_NAME" =~  (master|develop|release/*|feature/*) ]]; then 
+          echo "Current branch $SOURCE_BRANCH_NAME matched pattern, running step"
+          docker run -i -v "$PWD":/opt/app -v ~/.npmrc:/usr/local/etc/npmrc  -w /opt/app -a stdin -a stdout -a stderr --privileged $ECR_URL/$FERMIUM_IMAGE_NAME:$FERMIUM_IMAGE_TAG bash -c 'ls node_modules/ | wc -l && npm install && ls node_modules/ | wc -l || true '
+        else
+          echo "Current branch $SOURCE_BRANCH_NAME did not matched pattern, skipping step"
+        fi
+      - echo "*****************ENDING INSTALL PHASE*********************"
+      - echo "************************************************************"
+      - echo "*****************STARTING TEST PHASE*********************"
+      - |
+        if [[ "$SOURCE_BRANCH_NAME" =~  (master|develop|release/*|feature/*) ]]; then 
+          echo "Current branch $SOURCE_BRANCH_NAME matched pattern, running step"
+          docker run -i -v "$PWD":/opt/app  -v ~/.npmrc:/usr/local/etc/npmrc  -w /opt/app -a stdin -a stdout -a stderr --privileged $ECR_URL/$FERMIUM_IMAGE_NAME:$FERMIUM_IMAGE_TAG bash -c 'npm test'
+        else
+          echo "Current branch $SOURCE_BRANCH_NAME did not matched pattern, skipping step"
+        fi
+      - echo "*****************ENDING TEST PHASE*********************"
+      - echo "************************************************************"
+
+  build:
+    commands:
+      - echo "*****************BUILD STEP*********************" 
+      - echo "************************************************************"
+      - echo "*****************BUILD PHASE*********************"
+      - echo "*****************BUILD PHASE docker_prod_dev *********************"
+      - |
+        if [[ "$SOURCE_BRANCH_NAME" =~  (master|develop|release/*|feature/*) ]]; then 
+          echo "Current branch $SOURCE_BRANCH_NAME matched pattern, running step"
+          docker build --cache-from $CONTAINER_REPOSITORY_URL:$TAG_NAME --tag $CONTAINER_REPOSITORY_URL:$TAG_NAME  --tag $CODEBUILD_BUILD_NUMBER --tag $SOURCE_BRANCH_NAME .
+        else
+          echo "Current branch $SOURCE_BRANCH_NAME did not matched pattern, skipping step"
+        fi
+      - echo "*****************ENDING BUILD PHASE*********************"
+      - echo "************************************************************"
+
+ 
+  post_build: 
+    commands:
+      - echo "*****************POST BUILD STEP*********************"
+      - echo "************************************************************"
+      - echo "*****************PUSH PHASE*********************"
+      - docker push $CONTAINER_REPOSITORY_URL
+      - docker tag $CONTAINER_REPOSITORY_URL $CONTAINER_REPOSITORY_URL:$CODEBUILD_BUILD_NUMBER
+      - docker push $CONTAINER_REPOSITORY_URL:$CODEBUILD_BUILD_NUMBER
+      - docker tag $CONTAINER_REPOSITORY_URL $CONTAINER_REPOSITORY_URL:$BUILD_ENV
+      - docker push $CONTAINER_REPOSITORY_URL:$BUILD_ENV
+      - echo "*****************PUSH PHASE DONE*********************"
+      - echo "*****************************************************"
+  
+cache:
+  paths:  
+    - '/.npm/**/*'
+    - '/docker_images/*'
