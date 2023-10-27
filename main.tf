@@ -20,8 +20,8 @@ module "repository" {
   repository_name = each.key
   project_name    = var.project_name
 
-  artifacts_bucket = aws_s3_bucket.artifacts_bucket.bucket
-  kms_key_arn      = aws_kms_key.cmk_key.arn
+  artifacts_bucket = module.protected_resources.artifacts_bucket
+  kms_key_arn      = module.protected_resources.kms_key_arn
 
   vpc_id             = module.network.vpc_id
   private_subnet_ids = module.network.private_subnet_ids
@@ -29,6 +29,20 @@ module "repository" {
 
   codeartifact_domain_name     = var.codeartifact_domain_name
   codeartifact_repository_name = var.codeartifact_repo_name
-lifecycle_image_count = var.lifecycle_image_count
+  lifecycle_image_count        = var.lifecycle_image_count
+
+}
+
+
+module "protected_resources" {
+  source             = "./modules/protected-resources"
+  macro_project_name = var.macro_project_name
+
+  ci_secrets_name          = var.ci_secrets_name
+  codeartifact_domain_name = var.codeartifact_domain_name
+  codeartifact_repo_name   = var.codeartifact_repo_name
+
+  ecr_repositories = var.ecr_repositories
+
 
 }

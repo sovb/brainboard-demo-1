@@ -14,7 +14,7 @@ The current challenges with the existing solution are as follow :
 ## Overall
 
 ## CodePipeline
-![alt text](./img/YP-MacroArchi.png)
+![alt text](./img/YP-ArchiMarcro.png)
 
 ## Buildspec.yml file
 ![alt text](./img/YP-buildspec.png)
@@ -29,9 +29,9 @@ The current challenges with the existing solution are as follow :
 #### Commands
 ```bash
 #See to check changes that will be made to infrastructure  
-tf plan  --var-file vars.tfvars --var-file envs/<project_name>/vars.tfvars  
+terraform plan  --var-file vars.tfvars --var-file envs/<project_name>/vars.tfvars  
 #Apply changes if it seems ok to you 
-tf apply  --var-file vars.tfvars --var-file envs/<project_name>/vars.tfvars  
+terraform apply  --var-file vars.tfvars --var-file envs/<project_name>/vars.tfvars  
 ```
 
 # Macro procedure regarding migration
