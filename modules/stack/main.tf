@@ -19,12 +19,12 @@ resource "aws_ecr_lifecycle_policy" "keep_last_five_tagged_images" {
     "rules": [
         {
             "rulePriority": 1,
-            "description": "Keep last 5 images",
+            "description": "Keep last ${var.lifecycle_image_count} images",
             "selection": {
                 "tagStatus": "tagged",
                 "tagPrefixList": ["v"],
                 "countType": "imageCountMoreThan",
-                "countNumber": 5
+                "countNumber": ${var.lifecycle_image_count}
             },
             "action": {
                 "type": "expire"
@@ -39,13 +39,12 @@ resource "aws_codecommit_repository" "repo" {
   repository_name = var.repository_name
   description     = "This stores the ${var.repository_name} repository, within the ${var.project_name} project"
 
-  #   lifecycle {
-  #     prevent_destroy = true
-  #   }
+    lifecycle {
+      prevent_destroy = true
+    }
 }
 
 resource "aws_codebuild_project" "build_project" {
-
 
   name           = "${var.repository_name}-build-project"
   description    = "This project builds the ${var.repository_name} repository in project ${var.project_name}"
@@ -91,7 +90,7 @@ resource "aws_codebuild_project" "build_project" {
       name  = "CONTAINER_REPOSITORY_URL"
       value = aws_ecr_repository.destination_ecr_repository.repository_url
     }
-    environment_variable {
+    environment_variable {   ##CHECKER AVEC YP LA LOGIQUE DES TAGS
       name  = "TAG_NAME"
       value = "latest"
     }

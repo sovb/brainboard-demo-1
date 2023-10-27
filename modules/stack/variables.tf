@@ -49,3 +49,7 @@ variable "codeartifact_domain_name" {
 variable "codeartifact_repository_name" {
   type = string
 }
+
+variable "lifecycle_image_count" {
+  type = number
+}

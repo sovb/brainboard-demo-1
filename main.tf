@@ -29,6 +29,6 @@ module "repository" {
 
   codeartifact_domain_name     = var.codeartifact_domain_name
   codeartifact_repository_name = var.codeartifact_repo_name
-
+lifecycle_image_count = var.lifecycle_image_count
 
 }

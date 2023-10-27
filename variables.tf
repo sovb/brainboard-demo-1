@@ -58,4 +58,6 @@ variable "codeartifact_repositories" {
   type = list(string)
 }
 
-
+variable "lifecycle_image_count" {
+  type = number
+}

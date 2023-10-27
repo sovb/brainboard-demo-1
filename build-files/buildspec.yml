@@ -1,8 +1,9 @@
 version: 0.2
 
 env:
+  # if you need to use secrets stored in secrets manager, specify ARN of the secret here 
   # secrets-manager:
-  #   NPM_REGISTERY: "arn:aws:secretsmanager:us-east-1:682740202133:secret:yp-ci-demo-npm_registry-secrets-bFo74K"
+  #   SONAR_HOST: <arn_of_resource>
 
   variables:
     FERMIUM_IMAGE_NAME: "fermium"

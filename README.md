@@ -14,6 +14,7 @@ The current challenges with the existing solution are as follow :
 ## Overall
 
 ## CodePipeline
+![alt text](./img/YP-MacroArchi.png)
 
 ## Buildspec.yml file
 ![alt text](./img/YP-buildspec.png)
@@ -179,22 +180,16 @@ npm publish
 #If there is no error code, it means your ackage was successfully published to private package repository
 ```
 
-
-
 # Features to add in the future
 
 - sonar step 
 - deploy step 
 - configure remote tfstate 
+- check docker images tag logic 
 
 - create IAM role for users (Admin + Readonly)
 - add cache on node_modules
 
-
-
- 
-
-- Decide where are var files stored (env/<proj>/<repo>) //ok 
 
 WHAT WOULD BE NICE :
 
